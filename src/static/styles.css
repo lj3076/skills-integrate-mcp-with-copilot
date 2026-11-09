@@ -123,6 +123,58 @@ section h3 {
   border-top: 1px dashed #ccc;
 }
 
+.events-container {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px dashed #ccc;
+}
+
+.events-container h5 {
+  margin-bottom: 8px;
+  color: #1a237e;
+  font-size: 16px;
+}
+
+.activity-events {
+  list-style: none;
+  margin-bottom: 10px;
+}
+
+.activity-event {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.activity-event span {
+  display: block;
+  color: #555;
+  font-size: 14px;
+}
+
+.event-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.event-actions button,
+.add-event-btn {
+  padding: 6px 9px;
+  font-size: 14px;
+}
+
+.event-actions .cancel-event-btn {
+  background-color: #9c2c2c;
+}
+
+.event-actions .cancel-event-btn:hover {
+  background-color: #7f1d1d;
+}
+
 .participants-section h5 {
   margin-bottom: 8px;
   color: #1a237e;
@@ -248,6 +300,11 @@ button:hover {
 
   #teacher-status {
     margin-right: auto;
+  }
+
+  .activity-event {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

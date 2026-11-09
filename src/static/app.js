@@ -11,7 +11,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("login-form");
   const authMessage = document.getElementById("auth-message");
   const cancelLoginButton = document.getElementById("cancel-login");
+  const eventDialog = document.getElementById("event-dialog");
+  const eventForm = document.getElementById("event-form");
+  const eventDialogTitle = document.getElementById("event-dialog-title");
+  const eventFormMessage = document.getElementById("event-form-message");
+  const cancelEventButton = document.getElementById("cancel-event");
   let isTeacher = false;
+
+  function escapeHtml(value) {
+    const element = document.createElement("span");
+    element.textContent = String(value ?? "");
+    return element.innerHTML;
+  }
 
   function updateTeacherControls() {
     signupContainer.classList.toggle("hidden", !isTeacher);
@@ -28,6 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -36,6 +48,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft =
           details.max_participants - details.participants.length;
+        const now = new Date();
+        const events = (details.events || [])
+          .filter((activityEvent) =>
+            isTeacher || new Date(activityEvent.date_time) >= now
+          )
+          .sort((first, second) =>
+            new Date(first.date_time) - new Date(second.date_time)
+          );
+        const eventsHTML = events.length
+          ? `<ul class="activity-events">${events
+              .map((activityEvent) => {
+                const eventDate = new Intl.DateTimeFormat(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }).format(new Date(activityEvent.date_time));
+                return `<li class="activity-event">
+                  <div>
+                    <strong>${escapeHtml(activityEvent.title)}</strong>
+                    <span>${escapeHtml(eventDate)} · ${escapeHtml(activityEvent.location)} · ${escapeHtml(activityEvent.participation_type)}</span>
+                  </div>
+                  ${isTeacher ? `<div class="event-actions">
+                    <button class="edit-event-btn" data-activity="${escapeHtml(name)}" data-event-id="${escapeHtml(activityEvent.id)}" type="button">Edit</button>
+                    <button class="cancel-event-btn" data-activity="${escapeHtml(name)}" data-event-id="${escapeHtml(activityEvent.id)}" type="button">Cancel event</button>
+                  </div>` : ""}
+                </li>`;
+              })
+              .join("")}</ul>`
+          : `<p><em>No upcoming events</em></p>`;
 
         // Create participants HTML with delete icons instead of bullet points
         const participantsHTML =
@@ -61,6 +101,11 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="events-container">
+            <h5>Upcoming events</h5>
+            ${eventsHTML}
+            ${isTeacher ? `<button class="add-event-btn" data-activity="${escapeHtml(name)}" type="button">Add event</button>` : ""}
+          </div>
           <div class="participants-container">
             ${participantsHTML}
           </div>
@@ -78,6 +123,23 @@ document.addEventListener("DOMContentLoaded", () => {
       // Add event listeners to delete buttons
       document.querySelectorAll(".delete-btn").forEach((button) => {
         button.addEventListener("click", handleUnregister);
+      });
+      document.querySelectorAll(".add-event-btn").forEach((button) => {
+        button.addEventListener("click", () => openEventDialog(button.dataset.activity));
+      });
+      document.querySelectorAll(".edit-event-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          const activity = activities[button.dataset.activity];
+          const activityEvent = activity.events.find(
+            (item) => item.id === button.dataset.eventId
+          );
+          if (activityEvent) {
+            openEventDialog(button.dataset.activity, activityEvent);
+          }
+        });
+      });
+      document.querySelectorAll(".cancel-event-btn").forEach((button) => {
+        button.addEventListener("click", handleEventCancellation);
       });
     } catch (error) {
       activitiesList.innerHTML =
@@ -183,6 +245,81 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   cancelLoginButton.addEventListener("click", () => loginDialog.close());
+
+  function openEventDialog(activityName, activityEvent = null) {
+    eventForm.reset();
+    eventForm.elements.activity_name.value = activityName;
+    eventForm.elements.event_id.value = activityEvent?.id || "";
+    eventDialogTitle.textContent = activityEvent ? "Edit event" : "Add event";
+    eventForm.elements.title.value = activityEvent?.title || "";
+    eventForm.elements.date_time.value = activityEvent?.date_time.slice(0, 16) || "";
+    eventForm.elements.location.value = activityEvent?.location || "";
+    eventForm.elements.participation_type.value =
+      activityEvent?.participation_type || "Individual";
+    eventFormMessage.className = "message hidden";
+    eventDialog.showModal();
+    eventForm.elements.title.focus();
+  }
+
+  cancelEventButton.addEventListener("click", () => eventDialog.close());
+
+  eventForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const activityName = eventForm.elements.activity_name.value;
+    const eventId = eventForm.elements.event_id.value;
+    const eventData = {
+      title: eventForm.elements.title.value,
+      date_time: eventForm.elements.date_time.value,
+      location: eventForm.elements.location.value,
+      participation_type: eventForm.elements.participation_type.value,
+    };
+
+    try {
+      const url = `/activities/${encodeURIComponent(activityName)}/events${
+        eventId ? `/${encodeURIComponent(eventId)}` : ""
+      }`;
+      const response = await fetch(url, {
+        method: eventId ? "PUT" : "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(eventData),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || "Unable to save event");
+      }
+
+      eventDialog.close();
+      fetchActivities();
+    } catch (error) {
+      eventFormMessage.textContent = error.message || "Unable to save event";
+      eventFormMessage.className = "message error";
+    }
+  });
+
+  async function handleEventCancellation(event) {
+    const button = event.currentTarget;
+    if (!window.confirm("Cancel this event?")) return;
+
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(button.dataset.activity)}/events/${encodeURIComponent(button.dataset.eventId)}`,
+        { method: "DELETE", credentials: "same-origin" }
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || "Unable to cancel event");
+      }
+      messageDiv.textContent = result.message;
+      messageDiv.className = "success";
+      messageDiv.classList.remove("hidden");
+      fetchActivities();
+    } catch (error) {
+      messageDiv.textContent = error.message || "Unable to cancel event";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+    }
+  }
 
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();

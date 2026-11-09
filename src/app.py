@@ -11,12 +11,14 @@ import json
 import os
 import secrets
 import time
+from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
@@ -36,6 +38,14 @@ teacher_sessions: dict[str, tuple[str, float]] = {}
 class TeacherLogin(BaseModel):
     username: str
     password: str
+
+
+class ActivityEventInput(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    date_time: datetime
+    location: str = Field(min_length=1, max_length=200)
+    participation_type: Literal["Individual", "Team"]
+
 
 # In-memory activity database
 activities = {
@@ -94,6 +104,8 @@ activities = {
         "participants": ["charlotte@mergington.edu", "henry@mergington.edu"]
     }
 }
+for activity in activities.values():
+    activity["events"] = []
 
 
 def verify_teacher_credentials(username: str, password: str) -> bool:
@@ -188,6 +200,66 @@ def get_teacher_session(request: Request):
 @app.get("/activities")
 def get_activities():
     return activities
+
+
+def get_activity_event(activity_name: str, event_id: str) -> dict:
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    for event in activities[activity_name]["events"]:
+        if event["id"] == event_id:
+            return event
+    raise HTTPException(status_code=404, detail="Event not found")
+
+
+def serialize_event_input(event_input: ActivityEventInput) -> dict:
+    event = event_input.model_dump()
+    event["title"] = event["title"].strip()
+    event["location"] = event["location"].strip()
+    if not event["title"] or not event["location"]:
+        raise HTTPException(status_code=422, detail="Title and location are required")
+    event["date_time"] = event["date_time"].isoformat()
+    return event
+
+
+@app.post(
+    "/activities/{activity_name}/events",
+    status_code=201,
+    dependencies=[Depends(require_teacher)],
+)
+def create_activity_event(activity_name: str, event_input: ActivityEventInput):
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    event = {"id": secrets.token_urlsafe(9), **serialize_event_input(event_input)}
+    activities[activity_name]["events"].append(event)
+    return event
+
+
+@app.put(
+    "/activities/{activity_name}/events/{event_id}",
+    dependencies=[Depends(require_teacher)],
+)
+def update_activity_event(
+    activity_name: str, event_id: str, event_input: ActivityEventInput
+):
+    event = get_activity_event(activity_name, event_id)
+    event.update(serialize_event_input(event_input))
+    return event
+
+
+@app.delete(
+    "/activities/{activity_name}/events/{event_id}",
+    dependencies=[Depends(require_teacher)],
+)
+def cancel_activity_event(activity_name: str, event_id: str):
+    get_activity_event(activity_name, event_id)
+    activities[activity_name]["events"] = [
+        event
+        for event in activities[activity_name]["events"]
+        if event["id"] != event_id
+    ]
+    return {"message": "Event cancelled"}
 
 
 @app.post("/activities/{activity_name}/signup", dependencies=[Depends(require_teacher)])

@@ -6,6 +6,8 @@ A super simple FastAPI application that allows students to view and sign up for 
 
 - View all available extracurricular activities
 - Sign up for activities
+- View upcoming events associated with activities
+- Let teachers schedule, edit, and cancel events
 
 ## Getting Started
 
@@ -29,12 +31,15 @@ A super simple FastAPI application that allows students to view and sign up for 
 
 | Method | Endpoint                                                          | Description                                                         |
 | ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
-| GET    | `/activities`                                                     | Get all activities with their details and current participant count |
-| POST   | `/activities/{activity_name}/signup?email=student@mergington.edu` | Sign up for an activity (teacher login required)                    |
-| DELETE | `/activities/{activity_name}/unregister?email=student@mergington.edu` | Remove a student from an activity (teacher login required)         |
-| POST   | `/auth/login`                                                      | Sign in as a teacher                                                |
-| POST   | `/auth/logout`                                                     | Sign out                                                            |
-| GET    | `/auth/session`                                                    | Check the current login state                                       |
+| GET    | `/activities` | Get activities, participants, and their events |
+| POST   | `/activities/{activity_name}/signup?email=student@mergington.edu` | Sign up for an activity (teacher login required) |
+| DELETE | `/activities/{activity_name}/unregister?email=student@mergington.edu` | Remove a student from an activity (teacher login required) |
+| POST   | `/activities/{activity_name}/events` | Create an event (teacher login required) |
+| PUT    | `/activities/{activity_name}/events/{event_id}` | Edit an event (teacher login required) |
+| DELETE | `/activities/{activity_name}/events/{event_id}` | Cancel an event (teacher login required) |
+| POST   | `/auth/login` | Sign in as a teacher |
+| POST   | `/auth/logout` | Sign out |
+| GET    | `/auth/session` | Check the current login state |
 
 ## Teacher Access
 
@@ -71,8 +76,16 @@ The application uses a simple data model with meaningful identifiers:
    - Schedule
    - Maximum number of participants allowed
    - List of student emails who are signed up
+   - List of scheduled events, empty when no events have been added
 
-2. **Students** - Uses email as identifier:
+2. **Events** - Belong to an activity and include:
+
+   - Title
+   - Date and time
+   - Location
+   - Participation type (individual or team)
+
+3. **Students** - Uses email as identifier:
    - Name
    - Grade level
 
