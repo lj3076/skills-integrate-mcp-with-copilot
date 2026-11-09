@@ -36,6 +36,38 @@
       </form>
     </dialog>
 
+    <dialog id="event-dialog" aria-labelledby="event-dialog-title">
+      <form id="event-form">
+        <h3 id="event-dialog-title">Add event</h3>
+        <input type="hidden" name="activity_name" />
+        <input type="hidden" name="event_id" />
+        <div class="form-group">
+          <label for="event-title">Event title:</label>
+          <input id="event-title" name="title" maxlength="120" required />
+        </div>
+        <div class="form-group">
+          <label for="event-date-time">Date and time:</label>
+          <input id="event-date-time" name="date_time" type="datetime-local" required />
+        </div>
+        <div class="form-group">
+          <label for="event-location">Location:</label>
+          <input id="event-location" name="location" maxlength="200" required />
+        </div>
+        <div class="form-group">
+          <label for="event-participation-type">Participation:</label>
+          <select id="event-participation-type" name="participation_type" required>
+            <option value="Individual">Individual</option>
+            <option value="Team">Team</option>
+          </select>
+        </div>
+        <div id="event-form-message" class="message hidden" role="alert"></div>
+        <div class="dialog-actions">
+          <button type="button" id="cancel-event">Cancel</button>
+          <button type="submit">Save event</button>
+        </div>
+      </form>
+    </dialog>
+
     <main>
       <section id="activities-container">
         <h3>Available Activities</h3>
